@@ -68,7 +68,7 @@ export default function SideBar({
           {/*
             Show header text on phone (base), hide it on md (compact collapsed sidebar),
             and show again on lg (desktop) — this matches label behavior for nav items.
-            Original code hid header on phones; we now show it on phones so it doesn't get hidden under topbar.
+            Original code hid header on phones; we now show it on phones so it doesn't get hidden under topbar
           */}
           <div className="block md:hidden lg:block">
             <div className="font-bold text-lg">Admin</div>
