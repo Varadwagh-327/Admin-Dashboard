@@ -89,6 +89,8 @@ export default function AdminDashboard({
   userId = 2,
   apiUrl = "https://beglam.superbstore.in/user/dashboard",
 }: Props) {
+
+  
   const { token } = useAuth(false);
   const [authHeader, setAuthHeader] = useState<string | null>(null);
 
@@ -102,6 +104,7 @@ export default function AdminDashboard({
   const [qStart, setQStart] = useState<string>(startDate);
   const [qEnd, setQEnd] = useState<string>(endDate);
   const [dateError, setDateError] = useState<string | null>(null);
+  
 
   // build auth header when token changes (supports tokens that already include scheme)
   useEffect(() => {
@@ -134,7 +137,7 @@ export default function AdminDashboard({
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            Authorization: authHeader,
+            ...(authHeader ? { Authorization: authHeader } : {}),
           },
           body: JSON.stringify(body),
           cache: "no-store",
@@ -235,11 +238,11 @@ export default function AdminDashboard({
     const raw = data?.order_sale_graph;
     if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
 
-    const out: { ts: number; dateLabel: string; total: number; original: any }[] = [];
+    const out: { ts: number; dateLabel: string; total: number; original: string | number }[] = [];
     let lastValidTs: number | null = null;
 
     for (let i = 0; i < raw.length; i++) {
-      const entry = raw[i] as { date: number; total: number };
+       const entry = raw[i] as { date: string | number; total: number };
       const rawDate = entry?.date;
       let ts: number | null = null;
 

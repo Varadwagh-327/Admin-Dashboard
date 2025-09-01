@@ -143,7 +143,12 @@ function parseNumberLike(v: unknown): number {
   return 0;
 }
 function getOrderAmount(o: Order | AnyObj): number {
-  const amt = (o as any).finalAmount ?? (o as any).totalAmount ?? (o as any).subtotal ?? (o as any).total ?? (o as any).amount;
+  const amt =
+    (o as any).finalAmount ??
+    (o as any).totalAmount ??
+    (o as any).subtotal ??
+    (o as any).total ??
+    (o as any).amount;
   return parseNumberLike(amt);
 }
 function getItemsCount(o: Order | AnyObj): number {
@@ -151,7 +156,12 @@ function getItemsCount(o: Order | AnyObj): number {
   return Array.isArray(arr) ? arr.length : 0;
 }
 function safeOrderDate(o: Order | AnyObj): DateString {
-  const raw = (o as any).createdAt ?? (o as any).created_at ?? (o as any).orderDate ?? (o as any).date ?? "";
+  const raw =
+    (o as any).createdAt ??
+    (o as any).created_at ??
+    (o as any).orderDate ??
+    (o as any).date ??
+    "";
   const d = raw ? new Date(String(raw)) : new Date();
   if (Number.isNaN(d.getTime())) return toISODateOnly(new Date());
   return toISODateOnly(d);
@@ -173,20 +183,17 @@ function statusSolidClass(statusRaw?: string) {
 /* ---------- Robust response parsing helpers ---------- */
 async function safeParseResponseBody(res: Response): Promise<unknown> {
   const contentType = res.headers.get("content-type") ?? "";
-  // If JSON content-type, use res.json()
   if (contentType.includes("application/json")) {
     try {
       return await res.json();
     } catch (err) {
-      // fallthrough to text parse
+      // fallthrough
     }
   }
-  // otherwise read as text and try JSON.parse
   const text = await res.text();
   try {
     return JSON.parse(text);
   } catch {
-    // Not JSON — return text so we can show it in the UI for debugging
     return text;
   }
 }
@@ -201,13 +208,11 @@ function extractArrayFromAny(json: unknown): unknown[] {
     if (Array.isArray(j.orders)) return j.orders;
     if (Array.isArray(j.results)) return j.results;
     if (Array.isArray(j.payload)) return j.payload;
-    // nested scenario: { data: { results: [...] } }
     if (j.data && typeof j.data === "object") {
       if (Array.isArray(j.data.results)) return j.data.results;
       if (Array.isArray(j.data.orders)) return j.data.orders;
     }
   }
-  // if none matched, return empty (caller will show error)
   return [];
 }
 
@@ -217,7 +222,7 @@ function getOrderStatus(o: Order | AnyObj): string {
 }
 
 /* ---------- Component ---------- */
-export default function OrdersPage(): JSX.Element {
+export default function OrdersPage(): React.ReactElement {
   const API = "https://beglam.superbstore.in/order/user-order";
 
   const [tokenFromStorage, setTokenFromStorage] = useState<string | null>(null);
@@ -285,7 +290,6 @@ export default function OrdersPage(): JSX.Element {
       });
 
       if (!res.ok) {
-        // Attempt GET fallback — but still parse bodies safely and include text if non-JSON
         const fallbackUrl = `${API}?start_date=${startDate}&end_date=${endDate}&page=${pageArg}&page_size=${pageSizeArg}`;
         const getRes = await fetch(fallbackUrl, {
           method: "GET",
@@ -297,10 +301,14 @@ export default function OrdersPage(): JSX.Element {
         });
 
         if (!getRes.ok) {
-          // show both POST and GET response text for debugging (could be HTML login page, error page, etc.)
           const postText = await res.text().catch(() => "(no body)");
           const getText = await getRes.text().catch(() => "(no body)");
-          throw new Error(`POST ${res.status} response: ${postText.slice(0, 400)} — GET ${getRes.status} response: ${getText.slice(0, 400)}`);
+          throw new Error(
+            `POST ${res.status} response: ${postText.slice(0, 400)} — GET ${getRes.status} response: ${getText.slice(
+              0,
+              400
+            )}`
+          );
         }
 
         const parsed = await safeParseResponseBody(getRes);
@@ -326,13 +334,10 @@ export default function OrdersPage(): JSX.Element {
       return;
     }
 
-    // best-effort: pull array from many possible shapes
     const arr = extractArrayFromAny(json);
 
     if (!Array.isArray(arr) || arr.length === 0) {
-      // If empty, show helpful debug info (server may return object with totals)
-      const asObj = (json && typeof json === "object") ? (json as Record<string, unknown>) : null;
-      // try to read totals even if no items
+      const asObj = json && typeof json === "object" ? (json as Record<string, unknown>) : null;
       const maybeTotal = asObj?.total ?? asObj?.count ?? asObj?.total_count;
       if (maybeTotal && typeof maybeTotal === "number") setTotal(maybeTotal);
       setOrders([]);
@@ -342,11 +347,9 @@ export default function OrdersPage(): JSX.Element {
       return;
     }
 
-    // cast to Order[] after the structural check
     setOrders(arr as Order[]);
 
-    // set total if present
-    const asObj = (json && typeof json === "object") ? (json as any) : {};
+    const asObj = json && typeof json === "object" ? (json as any) : {};
     if (typeof asObj.total === "number") setTotal(asObj.total);
     else if (typeof asObj.count === "number") setTotal(asObj.count);
     else if (typeof asObj.total_count === "number") setTotal(asObj.total_count);
@@ -371,7 +374,6 @@ export default function OrdersPage(): JSX.Element {
   }, [page, pageSize, startDate, endDate]);
 
   /* ---------- Totals for UI (now reflect visible / filtered list) ---------- */
-  /* ---------- filteredOrders is used for UI; orders remain untouched ---------- */
   const filteredOrders = useMemo(() => {
     if (!statusFilter || statusFilter === "ALL") return orders;
     return orders.filter((o) => {
@@ -390,8 +392,6 @@ export default function OrdersPage(): JSX.Element {
     downloadCSV(orders as AnyObj[], `orders_page_${page}_${startDate}_to_${endDate}.csv`);
   }
 
- 
-
   /* ---------- grouping (use filteredOrders now) ---------- */
   const grouped = useMemo(() => {
     const map: Record<string, Order[]> = {};
@@ -399,7 +399,6 @@ export default function OrdersPage(): JSX.Element {
       const key = safeOrderDate(o);
       (map[key] ||= []).push(o);
     }
-    // sort each date's group by createdAt desc
     Object.keys(map).forEach((k) => {
       map[k].sort((a, b) => {
         const ta = new Date((a.createdAt ?? a.created_at ?? a.orderDate ?? a.date) as string).getTime() || 0;
@@ -420,7 +419,6 @@ export default function OrdersPage(): JSX.Element {
     const prevOrder = orders.find((o) => String(getOrderId(o)) === String(orderId));
     const prevStatus = prevOrder ? (prevOrder.status ?? prevOrder.order_status ?? null) : null;
 
-    // optimistic
     setOrders((prev) =>
       prev.map((o) =>
         String(getOrderId(o)) === String(orderId) ? { ...o, status: newStatus, order_status: newStatus } : o
@@ -454,7 +452,6 @@ export default function OrdersPage(): JSX.Element {
       }
 
       if (!ok) {
-        // fallback to POST /{id}/status
         try {
           const r2 = await fetch(`${API}/${orderId}/status`, {
             method: "POST",
@@ -475,7 +472,6 @@ export default function OrdersPage(): JSX.Element {
         throw new Error("Server did not accept the update. Reverting UI.");
       }
     } catch (err: unknown) {
-      // revert optimistic change
       setOrders((prev) =>
         prev.map((o) =>
           String(getOrderId(o)) === String(orderId)
@@ -577,7 +573,9 @@ export default function OrdersPage(): JSX.Element {
 
           {/* show small totals for visible/filtered list */}
           <div className="text-sm text-gray-600 self-end">
-            <div>Showing <strong>{totalsForPage.count}</strong> orders — ₹{totalsForPage.amount.toFixed(2)}</div>
+            <div>
+              Showing <strong>{totalsForPage.count}</strong> orders — ₹{totalsForPage.amount.toFixed(2)}
+            </div>
           </div>
         </div>
       </div>
@@ -649,8 +647,7 @@ export default function OrdersPage(): JSX.Element {
                           <td className="py-3 pr-4">{getItemsCount(o)}</td>
                           <td className="py-3 pr-4 max-w-xs truncate">{(o.billingAddress as string) ?? "—"}</td>
                           <td className="py-3 pr-4">{new Date((o.createdAt ?? o.created_at ?? "") as string).toLocaleString() || "—"}</td>
-                          <td className="py-3">
-                          </td>
+                          <td className="py-3"></td>
                         </tr>
                       ))}
                     </tbody>
@@ -703,7 +700,7 @@ function StatusDropdownCell({
   order: Order | AnyObj;
   onSelect: (status: string) => void;
   updating?: boolean;
-}) {
+}): React.ReactElement {
   const current = ((order as any).status ?? (order as any).order_status ?? "—").toString();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -766,7 +763,7 @@ function StatusFilterDropdown({
   statusFilter: string;
   setStatusFilter: (s: string) => void;
   counts: Record<string, number>;
-}) {
+}): React.ReactElement {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
